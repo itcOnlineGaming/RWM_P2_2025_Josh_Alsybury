@@ -189,3 +189,9 @@ main {
   font-weight: 500;
   color: #e5e7eb;
 }
+
+.free-slot-highlight {
+  background: rgba(144, 238, 144, 0.35);
+  border: 2px dashed #4caf50;
+  border-radius: 6px;
+}
