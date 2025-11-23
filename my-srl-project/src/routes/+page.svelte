@@ -16,6 +16,8 @@
 
   // ISO dates for Mon–Sun of the current week
   let weekDays: string[] = [];
+
+  let weekDayNames: string[] = [];
   // byDayAndBucket["2025-11-19"].morning = [event, ...]
   let byDayAndBucket: Record<string, Record<Bucket, GEvent[]>> = {};
 
@@ -34,24 +36,30 @@
   });
 
   function initWeekView(reference: Date) {
-    // find Monday of this week
-    const monday = new Date(reference);
-    const diff = (monday.getDay() + 6) % 7; // 0 = Monday
-    monday.setDate(monday.getDate() - diff);
+  // find Monday of this week
+  const monday = new Date(reference);
+  const diff = (monday.getDay() + 6) % 7; // 0 = Monday
+  monday.setDate(monday.getDate() - diff);
 
-    weekDays = [];
-    byDayAndBucket = {};
+  weekDays = [];
+  weekDayNames = [];                    // reset
+  byDayAndBucket = {};
 
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      const iso = d.toISOString().slice(0, 10); // YYYY-MM-DD
-      weekDays.push(iso);
-      byDayAndBucket[iso] = { morning: [], midday: [], evening: [] };
-    }
+  const weekdayFmt = new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short'
+  });
 
-    bucketEvents();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const iso = d.toISOString().slice(0, 10); // YYYY-MM-DD
+    weekDays.push(iso);
+    weekDayNames.push(weekdayFmt.format(d));  // e.g. Mon, Tue
+    byDayAndBucket[iso] = { morning: [], midday: [], evening: [] };
   }
+
+  bucketEvents();
+}
 
   function bucketEvents() {
     for (const ev of events) {
@@ -72,43 +80,115 @@
       byDayAndBucket[dateKey][bucket].push(ev);
     }
   }
+  type FreeSlot = {
+    day: string;      // "2025-11-20"
+    bucket: Bucket;   // "morning" | "midday" | "evening"
+  };
+
+  let freeSlots: FreeSlot[] = [];
+
+  function findEmptySlots() {
+    const result: FreeSlot[] = [];
+
+    for (const day of weekDays) {
+      const bucketsForDay = byDayAndBucket[day];
+      if (!bucketsForDay) continue;
+
+      for (const bucket of buckets) {
+        const eventsInBucket = bucketsForDay[bucket];
+        if (!eventsInBucket || eventsInBucket.length === 0) {
+          result.push({ day, bucket });
+        }
+      }
+    }
+
+    freeSlots = result;
+  }
 </script>
 
 <h1 class="page-title">Smart Time Reclaim</h1>
 
 {#if error}
   <p class="error">{error}</p>
+
+  <!-- Always-visible connect button when there is an error -->
+  <div class="connect-wrapper">
+    <a class="connect-btn" href="/api/google-auth">
+      Connect Google Calendar
+    </a>
+  </div>
 {:else}
-  <div class="calendar-container">
-    <table class="week-calendar">
-      <thead>
-        <tr>
-          <th class="time-col">Time</th>
-          {#each weekDays as day}
-            <th>{day}</th>
-          {/each}
-        </tr>
-      </thead>
-      <tbody>
-        {#each buckets as bucket}
-          <tr>
-            <td class="bucket-label">{bucket}</td>
-            {#each weekDays as day}
-              <td class="slot">
-                {#if byDayAndBucket[day]}
-                  {#each byDayAndBucket[day][bucket] as ev}
-                    <div class="event">
-                      <span class="event-title">
-                        {ev.summary ?? 'Untitled'}
-                      </span>
-                    </div>
-                  {/each}
-                {/if}
-              </td>
+  <div class="layout">
+    <!-- LEFT: calendar -->
+    <div class="calendar-column">
+      <div class="calendar-container">
+        <table class="week-calendar">
+          <thead>
+            <tr>
+              <th class="time-col">Time</th>
+              {#each weekDays as day}
+                <th>{day}</th>
+              {/each}
+            </tr>
+            <tr>
+              <th class="time-col"></th>
+              {#each weekDayNames as name}
+                <th class="weekday-label">{name}</th>
+              {/each}
+            </tr>
+          </thead>
+          <tbody>
+            {#each buckets as bucket}
+              <tr>
+                <td class="bucket-label">{bucket}</td>
+                {#each weekDays as day}
+                  <td class="slot">
+                    {#if byDayAndBucket[day]}
+                      {#each byDayAndBucket[day][bucket] as ev}
+                        <div class="event">
+                          <span class="event-title">
+                            {ev.summary ?? 'Untitled'}
+                          </span>
+                        </div>
+                      {/each}
+                    {/if}
+                  </td>
+                {/each}
+              </tr>
             {/each}
-          </tr>
-        {/each}
-      </tbody>
-    </table>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- find empty slots panel -->
+    <aside class="sidebar">
+      <h2 class="sidebar-title">Find empty slots</h2>
+      <button class="primary-btn" on:click={findEmptySlots}>
+        Scan this week
+      </button>
+
+      {#if freeSlots.length === 0}
+        <p class="sidebar-hint">
+          Click “Scan this week” to see free slots for recovery blocks.
+        </p>
+      {:else}
+        <ul class="slot-list">
+          {#each freeSlots as slot}
+            <li>
+              <span class="slot-day">{slot.day}</span>
+              <span class="slot-bucket">{slot.bucket}</span>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </aside>
+  </div>
+
+  <!-- also show the connect button under the calendar even when it works -->
+  <div class="connect-wrapper">
+    <a class="connect-btn" href="/api/google-auth">
+      Reconnect Google Calendar
+    </a>
   </div>
 {/if}

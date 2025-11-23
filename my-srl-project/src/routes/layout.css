@@ -92,3 +92,100 @@ main {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* two-column layout */
+.layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.calendar-column {
+  min-width: 0;
+}
+
+/* sidebar */
+.sidebar {
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5e7eb;
+  padding: 1rem 1.25rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.4);
+}
+
+.sidebar-title {
+  font-size: 1.1rem;
+  margin: 0 0 0.75rem;
+}
+
+.primary-btn {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(to right, #4f46e5, #2563eb);
+  color: #f9fafb;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary-btn:hover {
+  filter: brightness(1.05);
+}
+
+.sidebar-hint {
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+.slot-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.slot-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid rgba(55, 65, 81, 0.8);
+}
+
+.slot-day {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    'Liberation Mono', 'Courier New', monospace;
+}
+
+.slot-bucket {
+  text-transform: capitalize;
+  color: #a5b4fc;
+}
+
+.connect-wrapper {
+  margin-top: 2rem;
+  display: flex;
+  justify-content: center;
+}
+
+.connect-btn {
+  display: inline-block;
+  padding: 0.5rem 1.2rem;
+  border-radius: 999px;
+  background: linear-gradient(to right, #22c55e, #16a34a);
+  color: #f9fafb;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 4px 10px rgba(22, 163, 74, 0.4);
+}
+
+.connect-btn:hover {
+  filter: brightness(1.05);
+}
+.weekday-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #e5e7eb;
+}

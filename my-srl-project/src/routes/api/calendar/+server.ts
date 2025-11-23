@@ -23,16 +23,29 @@ export const GET: RequestHandler = async () => {
   oauth2.setCredentials({ refresh_token: tokens.refresh_token });
 
   const calendar = google.calendar({ version: 'v3', auth: oauth2 });
+  const tasksClient = google.tasks({ version: 'v1', auth: oauth2 });
 
-  const { data } = await calendar.events.list({
+  const now = new Date();
+  const monday = new Date(now);
+  const diff = (monday.getDay() + 6) % 7; // 0 = Monday
+  monday.setDate(monday.getDate() - diff);
+  monday.setHours(0, 0, 0, 0);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 7);
+
+  const { data: calData } = await calendar.events.list({
     calendarId: 'primary',
-    timeMin: new Date().toISOString(),
-    maxResults: 20,
+    timeMin: monday.toISOString(),
+    timeMax: sunday.toISOString(),
     singleEvents: true,
-    orderBy: 'startTime'
+    orderBy: 'startTime',
+    maxResults: 100
   });
 
-  return new Response(JSON.stringify(data.items ?? []), {
+  const allItems = [...(calData.items ?? [])];
+
+  return new Response(JSON.stringify(allItems), {
     headers: { 'Content-Type': 'application/json' }
-  });
+  })
 };
