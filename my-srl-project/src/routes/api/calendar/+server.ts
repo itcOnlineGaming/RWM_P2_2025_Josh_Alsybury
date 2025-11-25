@@ -1,10 +1,8 @@
 // src/routes/api/calendar/+server.ts
 import type { RequestHandler } from './$types';
 import { google } from 'googleapis';
-import { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } from '$env/static/private';
+import { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI } from '$env/static/private';
 import { loadTokens } from '$lib/tokensStore';
-
-const redirect_uri = 'http://localhost:5173/api/calendar';
 
 export const GET: RequestHandler = async () => {
   const tokens = loadTokens();
@@ -16,7 +14,7 @@ export const GET: RequestHandler = async () => {
   const oauth2 = new google.auth.OAuth2(
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
-    redirect_uri
+    GOOGLE_REDIRECT_URI  // ← Use env variable
   );
 
   // googleapis will auto‑refresh access_token using this refresh_token

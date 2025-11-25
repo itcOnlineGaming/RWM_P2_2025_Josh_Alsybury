@@ -17,5 +17,5 @@ export function GET() {
         scope: ['https://www.googleapis.com/auth/calendar','https://www.googleapis.com/auth/tasks.readonly']
     });
     
-    throw redirect(302, '/');
+    throw redirect(302,  url);
 }
