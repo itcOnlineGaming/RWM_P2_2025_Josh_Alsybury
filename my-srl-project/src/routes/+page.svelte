@@ -1,5 +1,6 @@
 <!-- +page.svelte -->
 <script lang="ts">
+  
   import { onMount } from 'svelte';
 
   type GEvent = {
@@ -9,14 +10,16 @@
     end?: { dateTime?: string; date?: string };
   };
 
-  type AvailableSlot = {
-  id: string;
-  date: string;
-  bucket: Bucket;
-  timeString: string;
-  duration: number;
-};
 
+ type TimeBlock = {
+    id: string;
+    title: string;
+    color: string;
+  };
+
+  let timeBlocks: TimeBlock[] = [];
+  let newBlockTitle = '';
+  let blockColors = ['#667eea', '#48bb78', '#ed8936', '#e53e3e', '#38b2ac'];
 
   let events: GEvent[] = [];
   let error: string | null = null;
@@ -41,6 +44,14 @@
       initWeekView(new Date());
       findRealGaps();
       findEmptySlots();
+      try {
+      const saved = await (window as any).storage.get('time-blocks');
+       if (saved?.value) {
+        timeBlocks = JSON.parse(saved.value);
+        }
+      } catch (e) {
+        // No saved blocks yet
+      }
     } catch (e) {
       error = 'Failed to load events';
     }
@@ -106,6 +117,74 @@
     }
   }
 
+   function addTimeBlock() {
+    if (!newBlockTitle.trim()) return;
+    
+    timeBlocks = [...timeBlocks, {
+      id: crypto.randomUUID(),
+      title: newBlockTitle.trim(),
+      color: blockColors[timeBlocks.length % blockColors.length]
+    }];
+    
+    newBlockTitle = '';
+    saveTimeBlocks();
+  }
+
+  function removeTimeBlock(id: string) {
+    timeBlocks = timeBlocks.filter(b => b.id !== id);
+    saveTimeBlocks();
+  }
+
+  async function saveTimeBlocks() {
+    try {
+      await (window as any).storage.set('time-blocks', JSON.stringify(timeBlocks));
+    } catch (e) {
+      console.error('Failed to save time blocks:', e);
+    }
+  }
+
+async function assignBlockToCalendar(block: TimeBlock, day: string, bucket: Bucket) {
+  const times = bucketTimes[bucket];
+  // Add timezone to the datetime strings
+  const startDateTime = `${day}T${times.start}:00+00:00`; // or use your local timezone like +01:00
+  const endDateTime = `${day}T${times.end}:00+00:00`;
+  
+  try {
+    const res = await fetch('/api/calendar/create-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        summary: block.title,
+        start: { 
+          dateTime: startDateTime,
+          timeZone: 'Europe/Dublin' // Use your timezone
+        },
+        end: { 
+          dateTime: endDateTime,
+          timeZone: 'Europe/Dublin'
+        }
+      })
+    });
+    
+    if (res.ok) {
+      // Refresh calendar
+      const calRes = await fetch('/api/calendar');
+      events = await calRes.json();
+      initWeekView(new Date());
+      findRealGaps();
+      findEmptySlots();
+      alert(`✓ Added "${block.title}" to ${formatDate(day)} ${bucket}`);
+    } else {
+      const errorText = await res.text();
+      console.error('Server error:', errorText);
+      alert(`Failed to create event: ${errorText}`);
+    }
+  } catch (e) {
+    console.error('Error details:', e);
+    alert(`Error creating event: ${e}`);
+  }
+}
+
   const bucketTimes: Record<Bucket, { start: string; end: string }> = {
     morning: { start: "08:00", end: "12:00" },
     midday: { start: "12:00", end: "17:00" },
@@ -164,38 +243,6 @@
     }
     freeSlots = result;
   }
-
-  let availableSlots: AvailableSlot[] = [];
-
-function buildAvailableSlots() {
-  const list: AvailableSlot[] = [];
-
-  for (const day of weekDays) {
-    for (const bucket of buckets) {
-      const empty = byDayAndBucket[day][bucket].length === 0;
-      if (!empty) continue;
-
-      const t = bucketTimes[bucket];
-      const start = `${t.start}`;
-      const end = `${t.end}`;
-
-      const duration =
-        (new Date(`${day}T${end}:00`).getTime() -
-         new Date(`${day}T${start}:00`).getTime()) / 60000;
-
-      list.push({
-        id: `${day}-${bucket}`,
-        date: day,
-        bucket,
-        timeString: `${start} - ${end}`,
-        duration
-      });
-    }
-  }
-
-  availableSlots = list;
-}
-
 
   function isFree(day: string, bucket: Bucket) {
     return freeSlots.some((s) => s.day === day && s.bucket === bucket);
@@ -347,29 +394,64 @@ function buildAvailableSlots() {
     </ul>
   </section>
 
+  <!-- Time Blocks -->
+<section class="card slots-card">
+  <div class="slots-header">
+    <h3>Time Blocks</h3>
+    <span class="slot-count">{timeBlocks.length}</span>
+  </div>
 
-  <!-- Available Slots -->
-  <section class="card slots-card">
-    <div class="slots-header">
-      <h3>Available Slots</h3>
-      <span class="slot-count">{availableSlots.length}</span>
-    </div>
+  <div class="add-block-form">
+    <input 
+      type="text" 
+      bind:value={newBlockTitle}
+      on:keypress={(e) => e.key === 'Enter' && addTimeBlock()}
+      placeholder="Study, Gym, Project..."
+      class="block-input"
+    />
+    <button on:click={addTimeBlock} class="add-block-btn">+ Add</button>
+  </div>
 
-    <div class="slots-list">
-      {#each availableSlots as s (s.id)}
-        <div class="slot-item">
-          <div class="slot-date">
-            <strong>{formatDate(s.date)}</strong>
-          </div>
-          <div class="slot-info">
-            <span class="slot-bucket {s.bucket.toLowerCase()}">{s.bucket}</span>
-            <span class="slot-time">{s.timeString}</span>
-            <span class="slot-duration">({s.duration} min)</span>
-          </div>
+  <div class="slots-list">
+    {#each timeBlocks as block (block.id)}
+      <div class="time-block-item" style="border-left-color: {block.color}">
+        <div class="block-header">
+          <span class="block-title">{block.title}</span>
+          <button on:click={() => removeTimeBlock(block.id)} class="remove-btn">×</button>
         </div>
-      {/each}
-    </div>
-  </section>
+        <div class="block-actions">
+          <select 
+            class="slot-select"
+            on:change={(e) => {
+              const value = e.currentTarget.value;
+              if (value) {
+                const [day, bucket] = value.split('|');
+                assignBlockToCalendar(block, day, bucket as Bucket);
+                e.currentTarget.value = '';
+              }
+            }}
+          >
+            <option value="">Assign to slot...</option>
+            {#each freeSlots as slot}
+              <option value="{slot.day}|{slot.bucket}">
+                {formatDate(slot.day)} - {slot.bucket}
+              </option>
+            {/each}
+          </select>
+        </div>
+      </div>
+    {/each}
+    
+    {#if timeBlocks.length === 0}
+      <div class="empty-message">
+        <span class="empty-icon-small">📋</span>
+        <p>Add time blocks to schedule</p>
+      </div>
+    {/if}
+  </div>
+</section>
+
+
 
 </div>
       <a class="btn-secondary" href="/api/google-auth">
@@ -456,6 +538,29 @@ function buildAvailableSlots() {
     align-items: center;
     background: #f7fafc;
   }
+
+  .slot-select {
+  width: 100%;
+  padding: 8px 12px;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4a5568;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.slot-select:hover {
+  border-color: #667eea;
+}
+
+.slot-select:focus {
+  outline: none;
+  border-color: #667eea;
+  background: #f7fafc;
+}
 
   .sidebar-header {
     display: flex;
@@ -739,6 +844,90 @@ function buildAvailableSlots() {
   .capacity-segment.busy {
     background: #e2e8f0;
   }
+
+  /* TIME BLOCKS STYLING */
+.add-block-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.block-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.block-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.add-block-btn {
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.add-block-btn:hover {
+  transform: translateY(-2px);
+}
+
+.time-block-item {
+  background: #f7fafc;
+  padding: 12px;
+  border-radius: 10px;
+  border-left: 4px solid #667eea;
+  margin-bottom: 10px;
+}
+
+.block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.block-title {
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 14px;
+}
+
+.remove-btn {
+  background: none;
+  border: none;
+  color: #718096;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.remove-btn:hover {
+  background: #e2e8f0;
+  color: #e53e3e;
+}
+
+.block-actions {
+  display: flex;
+  gap: 8px;
+}
 
   /* Slot List */
   .slot-badge {
