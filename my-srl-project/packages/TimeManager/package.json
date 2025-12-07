@@ -1,0 +1,17 @@
+{
+  "name": "@my-srl-project/time-manager",
+  "version": "1.0.0",
+  "type": "module",
+  "svelte": "./src/index.ts",
+  "exports": {
+    ".": {
+      "svelte": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "googleapis": "^166.0.0"
+  },
+  "peerDependencies": {
+    "svelte": "^5.0.0"
+  }
+}

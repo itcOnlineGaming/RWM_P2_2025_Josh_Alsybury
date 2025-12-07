@@ -92,39 +92,30 @@
   }
 
   function bucketEvents() {
-  for (const ev of events) {
-    const startIso = ev.start?.dateTime ?? ev.start?.date;
-    const endIso = ev.end?.dateTime ?? ev.end?.date;
-    if (!startIso) continue;
+    for (const ev of events) {
+      const startIso = ev.start?.dateTime ?? ev.start?.date;
+      if (!startIso) continue;
 
-    const start = new Date(startIso);
-    const dateKey = start.toISOString().slice(0, 10);
+      const start = new Date(startIso);
+      const dateKey = start.toISOString().slice(0, 10);
 
-    if (!(dateKey in byDayAndBucket)) continue;
+      if (!(dateKey in byDayAndBucket)) continue;
 
-    const isAllDay = !ev.start?.dateTime && ev.start?.date;
-    
-    if (isAllDay) {
-      allDayEvents[dateKey].push(ev);
-    } else {
-      const startHour = start.getHours();
-      const end = endIso ? new Date(endIso) : start;
-      const endHour = end.getHours();
+      const isAllDay = !ev.start?.dateTime && ev.start?.date;
       
-      // Determine which buckets this event spans
-      const affectedBuckets: Bucket[] = [];
-      
-      if (startHour < 12 || endHour <= 12) affectedBuckets.push('morning');
-      if ((startHour < 17 && endHour > 12) || (startHour >= 12 && startHour < 17)) affectedBuckets.push('midday');
-      if (endHour > 17 || startHour >= 17) affectedBuckets.push('evening');
-      
-      // Add event to all affected buckets
-      for (const bucket of affectedBuckets) {
+      if (isAllDay) {
+        allDayEvents[dateKey].push(ev);
+      } else {
+        const hour = start.getHours();
+        let bucket: Bucket;
+        if (hour < 12) bucket = 'morning';
+        else if (hour < 17) bucket = 'midday';
+        else bucket = 'evening';
+
         byDayAndBucket[dateKey][bucket].push(ev);
       }
     }
   }
-}
 
    function addTimeBlock() {
     if (!newBlockTitle.trim()) return;
@@ -357,8 +348,8 @@ async function assignBlockToCalendar(block: TimeBlock, day: string, bucket: Buck
                       {:else}
                         <div class="events-container">
                           {#each byDayAndBucket[day][bucket] as ev}
-                            <div class="event-tag {ev.colorId === '9' ? 'user-block' : ''}" class:compact={byDayAndBucket[day][bucket].length > 2}>
-                            {ev.summary ?? 'Untitled'}
+                            <div class="event-tag" class:compact={byDayAndBucket[day][bucket].length > 2}>
+                              {ev.summary ?? 'Untitled'}
                             </div>
                           {/each}
                         </div>
@@ -761,7 +752,7 @@ async function assignBlockToCalendar(block: TimeBlock, day: string, bucket: Buck
   }
 
   .event-tag {
-    background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     padding: 0.5rem 0.75rem;
     border-radius: 6px;
@@ -771,10 +762,6 @@ async function assignBlockToCalendar(block: TimeBlock, day: string, bucket: Buck
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .event-tag.user-block {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   }
 
   .event-tag.compact {

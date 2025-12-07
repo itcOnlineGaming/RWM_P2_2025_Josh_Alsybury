@@ -30,7 +30,7 @@ export const GET: RequestHandler = async () => {
   monday.setHours(0, 0, 0, 0);
 
   const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 14);
+  sunday.setDate(monday.getDate() + 7);
 
   const { data: calData } = await calendar.events.list({
     calendarId: 'primary',
